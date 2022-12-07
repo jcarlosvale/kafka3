@@ -117,6 +117,10 @@ public class OpenSearchConsumer {
                     } catch (Exception e) {
                     }
                 }
+
+                //commit offsets if auto.commit is false
+                consumer.commitSync();
+                log.info("offsets have been commited.");
             }
         }
 
@@ -147,6 +151,10 @@ public class OpenSearchConsumer {
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest"); //none/earliest/latest
+
+        //manual auto commit
+        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+
 
         //create the Consumer
         return new KafkaConsumer<>(properties);
