@@ -1,5 +1,6 @@
 package io.demos;
 
+import com.google.gson.JsonParser;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -95,10 +96,20 @@ public class OpenSearchConsumer {
 
                 for(ConsumerRecord<String, String> record : records) {
 
+
+                    //Strategy 1
+                    //define ID using Kafka Record to implement idempotency
+                    //String id = record.topic() + "_" + record.partition() + "_" + record.offset();
+
                     try {
+                        //Strategy 2
+                        //uses some id from data received
+                        String id = extractId(record.value());
+
                         //send the record into OpenSearch
                         IndexRequest indexRequest = new IndexRequest("wikimedia")
-                                .source(record.value(), XContentType.JSON);
+                                .source(record.value(), XContentType.JSON)
+                                .id(id);
 
                         IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
 
@@ -112,6 +123,16 @@ public class OpenSearchConsumer {
         // main code logic
 
         //close connection
+    }
+
+    private static String extractId(String json) {
+        //gson library
+        return JsonParser.parseString(json)
+                .getAsJsonObject()
+                .get("meta")
+                .getAsJsonObject()
+                .get("id")
+                .getAsString();
     }
 
     private static KafkaConsumer<String, String> createKafkaConsumer() {
