@@ -12,8 +12,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
@@ -94,6 +95,9 @@ public class OpenSearchConsumer {
                 int recordCount = records.count();
                 log.info("Received " + recordCount + " record(s)");
 
+                //send information as a batch
+                BulkRequest bulkRequest = new BulkRequest();
+
                 for(ConsumerRecord<String, String> record : records) {
 
 
@@ -111,16 +115,26 @@ public class OpenSearchConsumer {
                                 .source(record.value(), XContentType.JSON)
                                 .id(id);
 
-                        IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
+                        //inserting one by one, first strategy
+                        //IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
+                        //log.info("Inserted 1 document into OpenSearch: " + response.getId());
 
-                        log.info("Inserted 1 document into OpenSearch: " + response.getId());
+                        //inserting as a bulk
+                        bulkRequest.add(indexRequest);
+
                     } catch (Exception e) {
                     }
                 }
 
-                //commit offsets if auto.commit is false
-                consumer.commitSync();
-                log.info("offsets have been commited.");
+                //inserting the bulk
+                if (bulkRequest.numberOfActions() > 0) {
+                    BulkResponse bulkResponse = openSearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+                    log.info("Inserted " + bulkResponse.getItems().length + " record(s)");
+
+                    //commit offsets if auto.commit is false
+                    consumer.commitSync();
+                    log.info("offsets have been commited.");
+                }
             }
         }
 
